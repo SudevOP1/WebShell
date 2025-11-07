@@ -1,12 +1,8 @@
-
-
-def print_debug(
-    debug: bool,
-    msg: str,
-    debug_title: str = "DEBUG",
-    *args,
-    **kwargs,
-):
+def print_debug(debug: bool, msg: str, label: str = "DEBUG", *args, **kwargs) -> None:
     if debug:
-        print(f"[{debug_title}]", end="")
-        print(msg, *args, **kwargs)
+        print_log(msg, label, *args, **kwargs)
+
+
+def print_log(msg: str, label: str = "DEBUG", *args, **kwargs) -> None:
+    print(f"[{label}] ", end="")
+    print(msg, *args, **kwargs)

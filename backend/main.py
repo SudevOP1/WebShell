@@ -2,11 +2,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import traceback, json
 
 from utils.models import WSConnectionsManager
+from utils.helpers import print_debug, print_log
 
 
 app = FastAPI()
 DEBUG = True
-manager = WSConnectionsManager()
+manager = WSConnectionsManager(DEBUG)
 
 
 @app.get("/hi")
@@ -32,7 +33,7 @@ async def ws(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            print(f"[WEBSOCKET] recieved: {data}")
+            print_debug(DEBUG, f"recieved: {data}", "WEBSOCKET")
             data = json.loads(data)
 
             if data.get("type") == "echo":
@@ -51,4 +52,4 @@ async def ws(websocket: WebSocket):
 
     except Exception as e:
         traceback_str = traceback.format_exc()
-        print(f"[ERROR] something went wrong: {e}\n{traceback_str}")
+        print_log(f"something went wrong: {e}\n{traceback_str}", "ERROR")
