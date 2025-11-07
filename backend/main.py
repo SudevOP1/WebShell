@@ -10,14 +10,6 @@ DEBUG = True
 manager = WSConnectionsManager(DEBUG)
 
 
-@app.get("/hi")
-def hi():
-    return {
-        "success": True,
-        "msg": "hi",
-    }
-
-
 @app.get("/healthz")
 def health_check():
     return {
