@@ -7,20 +7,37 @@ const ws = new WebSocket("ws://localhost:8000/ws");
 
 const XTerminal = () => {
   const terminalRef = useRef(null);
+  const debug = true;
   let currentCmd = "";
   let enterPressedOnCmd = "";
+  let firstResponseReceived = false;
+
+  const debugLog = (...args) => {
+    if (debug) {
+      console.log(...args);
+    }
+  };
 
   useEffect(() => {
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
+      debugLog("receive data:", data);
+
+      if (!firstResponseReceived) {
+        firstResponseReceived = true;
+      }
       if (data.type === "output") {
         let output = data.output;
+
         if (output.startsWith(enterPressedOnCmd)) {
           output = output.replace(enterPressedOnCmd + "\r\n", "");
         }
+
         terminal.write(output);
         enterPressedOnCmd = "";
         currentCmd = "";
+        debugLog("currentCmd:", currentCmd);
+        debugLog("enterPressedOnCmd:", enterPressedOnCmd);
       }
     };
   }, []);
@@ -31,17 +48,12 @@ const XTerminal = () => {
     }
     terminal.open(terminalRef.current);
     terminal.onKey((e) => {
-      if (enterPressedOnCmd.length === 0) {
+      if (firstResponseReceived && enterPressedOnCmd.length === 0) {
         const key = e.key;
         const domEvent = e.domEvent;
-        console.log(
-          "key:",
-          key,
-          "domEvent.key:",
-          domEvent.key,
-          "keyCode:",
-          domEvent.keyCode
-        );
+        debugLog("key:", key);
+        debugLog("domEvent.key:", domEvent.key);
+        debugLog("keyCode:", domEvent.keyCode);
 
         // enter key pressed
         if (domEvent.keyCode === 13) {
@@ -69,7 +81,8 @@ const XTerminal = () => {
           terminal.write(key);
         }
 
-        console.log("currentCmd", currentCmd);
+        debugLog("currentCmd", currentCmd);
+        debugLog("enterPressedOnCmd:", enterPressedOnCmd);
       }
     });
     return () => {
