@@ -23,10 +23,18 @@ const XTerminal = () => {
     }
   };
 
-  const rewriteCurrentCmd = (cmd) => {
-    const numBackspaces = "\b \b".repeat(currentCmd.length);
-    terminal.write(numBackspaces);
-    terminal.write(cmd);
+  const replaceCmd = (oldCmd, newCmd) => {
+    if (!terminal) {
+      return;
+    }
+    const backspaces = "\b \b".repeat(oldCmd.length);
+    terminal.write(backspaces);
+    terminal.write(newCmd);
+  };
+
+  const clearCmdState = () => {
+    enterPressedOnCmd = "";
+    currentCmd = "";
   };
 
   // data received from backend
@@ -56,8 +64,7 @@ const XTerminal = () => {
         }
 
         terminal.write(output);
-        enterPressedOnCmd = "";
-        currentCmd = "";
+        clearCmdState();
         debugLog("currentCmd:", currentCmd);
         debugLog("enterPressedOnCmd:", enterPressedOnCmd);
       }
@@ -116,12 +123,7 @@ const XTerminal = () => {
           alert("websocket session expired. please refresh the page");
           return;
         }
-        ws.send(
-          JSON.stringify({
-            type: "cmd",
-            cmd: currentCmd.trim(),
-          })
-        );
+        ws.send(JSON.stringify({ type: "cmd", cmd: currentCmd.trim() }));
         terminal.write("\r\n"); // \r\n = newline (for windows terminals)
         enterPressedOnCmd = currentCmd;
         previouslyRunCmds.push(currentCmd);
@@ -156,11 +158,7 @@ const XTerminal = () => {
           previouslyRunCmdsIndex -= 1;
           const oldCmd = currentCmd;
           currentCmd = previouslyRunCmds[previouslyRunCmdsIndex];
-
-          // clear old command before writing new one
-          const numBackspaces = "\b \b".repeat(oldCmd.length);
-          terminal.write(numBackspaces);
-          terminal.write(currentCmd);
+          replaceCmd(oldCmd, currentCmd);
         }
 
         // if at top of history, reset to the currentCmdWhileTogglingPreviouslyRunCmds
@@ -169,11 +167,7 @@ const XTerminal = () => {
           previouslyRunCmdsIndex = previouslyRunCmds.length;
           currentCmd = currentCmdWhileTogglingPreviouslyRunCmds;
           currentCmdWhileTogglingPreviouslyRunCmds = "";
-
-          // clear old command before writing new one
-          const numBackspaces = "\b \b".repeat(oldCmd.length);
-          terminal.write(numBackspaces);
-          terminal.write(currentCmd);
+          replaceCmd(oldCmd, currentCmd);
         }
       }
 
@@ -186,11 +180,7 @@ const XTerminal = () => {
           previouslyRunCmdsIndex += 1;
           const oldCmd = currentCmd;
           currentCmd = previouslyRunCmds[previouslyRunCmdsIndex];
-
-          // clear old command before writing new one
-          const numBackspaces = "\b \b".repeat(oldCmd.length);
-          terminal.write(numBackspaces);
-          terminal.write(currentCmd);
+          replaceCmd(oldCmd, currentCmd);
         }
 
         // if at the last command, reset to the currentCmdWhileTogglingPreviouslyRunCmds
@@ -199,11 +189,7 @@ const XTerminal = () => {
           previouslyRunCmdsIndex = previouslyRunCmds.length;
           currentCmd = currentCmdWhileTogglingPreviouslyRunCmds;
           currentCmdWhileTogglingPreviouslyRunCmds = "";
-
-          // clear old command before writing new one
-          const numBackspaces = "\b \b".repeat(oldCmd.length);
-          terminal.write(numBackspaces);
-          terminal.write(currentCmd);
+          replaceCmd(oldCmd, currentCmd);
         }
       }
 
