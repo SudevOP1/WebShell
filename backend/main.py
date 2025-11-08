@@ -3,10 +3,10 @@ import traceback, json, time
 
 from utils.models import WSConnectionsManager, WSConnection
 from utils.helpers import print_debug, print_log
+from settings import *
 
 
 app = FastAPI()
-DEBUG = True
 manager = WSConnectionsManager(DEBUG)
 
 
@@ -78,14 +78,25 @@ async def ws(websocket: WebSocket):
                         )
                         continue
 
-                    # run the cmd and return output after timeout seconds
-                    else:
-                        connection = manager.get_connection(websocket)
-                        output = connection.terminal.run_cmd(cmd, timeout)
+                    # check if cmd in ALLOWED_CMD_LIST
+                    cmd_name = cmd.split(" ")[0].strip()
+                    if cmd_name not in ALLOWED_CMD_LIST:
                         await manager.send_personal_msg(
                             websocket,
-                            {"type": "output", "output": output},
+                            {
+                                "type": "output",
+                                "output": f"{cmd}\r\n'{cmd_name}' command not allowed\r\n\r\n{connection.terminal.run_cmd('', 1.0)}",
+                            },
                         )
+                        continue
+
+                    # run the cmd and return output after timeout seconds
+                    connection = manager.get_connection(websocket)
+                    output = connection.terminal.run_cmd(cmd, timeout)
+                    await manager.send_personal_msg(
+                        websocket,
+                        {"type": "output", "output": output},
+                    )
 
     except WebSocketDisconnect:
         await manager.disconnect(websocket)

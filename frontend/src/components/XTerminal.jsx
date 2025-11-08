@@ -109,6 +109,10 @@ const XTerminal = () => {
 
       // pressed enter key
       if (domEvent.keyCode === 13) {
+        if (!(ws && ws.readyState === WebSocket.OPEN)) {
+          alert("websocket session expired. please refresh the page");
+          return;
+        }
         ws.send(
           JSON.stringify({
             type: "cmd",
