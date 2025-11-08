@@ -41,43 +41,44 @@ async def ws(websocket: WebSocket):
 
     try:
         while True:
-            data = await websocket.receive_text()
-            print_debug(DEBUG, f"recieved: {data}", "WEBSOCKET")
-            data = json.loads(data)
+            if websocket in manager.connections.keys():
+                data = await websocket.receive_text()
+                print_debug(DEBUG, f"recieved: {data}", "WEBSOCKET")
+                data = json.loads(data)
 
-            msg_type = data.get("type", None)
-            if not isinstance(msg_type, str):
-                await manager.send_personal_msg(
-                    websocket,
-                    {"type": "error", "error": "invalid 'type' string field"},
-                )
-                continue
-
-            if data.get("type") == "cmd":
-                cmd = data.get("cmd", None)
-                timeout = data.get("timeout", 5.0)
-                if cmd is None or not isinstance(cmd, str):
+                msg_type = data.get("type", None)
+                if not isinstance(msg_type, str):
                     await manager.send_personal_msg(
                         websocket,
-                        {"type": "error", "error": "invalid 'cmd' string field"},
+                        {"type": "error", "error": "invalid 'type' string field"},
                     )
                     continue
-                if timeout is not None and not isinstance(timeout, float):
-                    await manager.send_personal_msg(
-                        websocket,
-                        {"type": "error", "error": "invalid 'timeout' float field"},
-                    )
-                    continue
-                else:
-                    connection = manager.get_connection(websocket)
-                    output = connection.terminal.run_cmd(cmd, timeout)
-                    await manager.send_personal_msg(
-                        websocket,
-                        {"type": "output", "output": output},
-                    )
+
+                if data.get("type") == "cmd":
+                    cmd = data.get("cmd", None)
+                    timeout = data.get("timeout", 5.0)
+                    if cmd is None or not isinstance(cmd, str):
+                        await manager.send_personal_msg(
+                            websocket,
+                            {"type": "error", "error": "invalid 'cmd' string field"},
+                        )
+                        continue
+                    if timeout is not None and not isinstance(timeout, float):
+                        await manager.send_personal_msg(
+                            websocket,
+                            {"type": "error", "error": "invalid 'timeout' float field"},
+                        )
+                        continue
+                    else:
+                        connection = manager.get_connection(websocket)
+                        output = connection.terminal.run_cmd(cmd, timeout)
+                        await manager.send_personal_msg(
+                            websocket,
+                            {"type": "output", "output": output},
+                        )
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
 
     except Exception as e:
         traceback_str = traceback.format_exc()

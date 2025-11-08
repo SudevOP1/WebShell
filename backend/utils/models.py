@@ -31,17 +31,26 @@ class WSConnectionsManager:
     async def disconnect(self, websocket: WebSocket) -> None:
         connection = self.get_connection(websocket)
         if connection is not None:
-            connection.terminal.close()
+            try:
+                connection.terminal.close()
+            except Exception:
+                pass
+            if websocket in self.connections.keys():
+                del self.connections[websocket]
             print_debug(
                 self.debug,
                 f"1 client disconnected, current active clients = {len(self.connections)}",
             )
 
     async def send_personal_msg(self, websocket: WebSocket, msg: str) -> None:
-        connection = self.get_connection(websocket)
-        if connection is not None:
-            await connection.websocket.send_text(json.dumps(msg))
-            print_debug(self.debug, f"sent personal msg: {msg}", "WEBSOCKET")
+        try:
+            connection = self.get_connection(websocket)
+            if connection is not None:
+                await connection.websocket.send_text(json.dumps(msg))
+                print_debug(self.debug, f"sent personal msg: {msg}", "WEBSOCKET")
+        except Exception:
+            print_debug(self.debug, f"send failed: {msg}", "ERROR")
+            pass
 
     async def broadcast_msg(self, msg: str) -> None:
         for connection in self.connections:
@@ -60,7 +69,7 @@ class PseudoTerminal:
 
     def _clean_output(self, data: str) -> str:
         """remove ANSI escape codes to prevent garbage text"""
-        return (re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", data)).replace("\r\n", "\n")
+        return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", data)
 
     def _read_output(self) -> None:
         """continuously keep reading pty output and store in queue"""
