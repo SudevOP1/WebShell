@@ -1,8 +1,10 @@
 import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
 import { useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 
 const terminal = new Terminal();
+const fitAddon = new FitAddon();
 const ws = new WebSocket("ws://localhost:8000/ws");
 
 const XTerminal = () => {
@@ -61,7 +63,19 @@ const XTerminal = () => {
     if (!terminalRef.current) {
       return;
     }
+
+    // load the fit addon
+    terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current);
+
+    // fit the terminal to container
+    fitAddon.fit();
+
+    // handle window resize
+    const handleResize = () => {
+      fitAddon.fit();
+    };
+    window.addEventListener("resize", handleResize);
 
     // handle key pressed before xterm handles them
     terminal.attachCustomKeyEventHandler((domEvent) => {
@@ -124,6 +138,7 @@ const XTerminal = () => {
     });
 
     return () => {
+      window.removeEventListener("resize", handleResize);
       terminal.dispose();
     };
   }, [terminalRef, ws]);
