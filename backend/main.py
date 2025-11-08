@@ -34,6 +34,8 @@ async def ws(websocket: WebSocket):
     await websocket.accept()
     connection = WSConnection(websocket)
     await manager.add_connection(connection)
+
+    # send initial output
     await manager.send_personal_msg(
         websocket,
         {"type": "output", "output": connection.terminal.get_output_queue()},
@@ -43,9 +45,10 @@ async def ws(websocket: WebSocket):
         while True:
             if websocket in manager.connections.keys():
                 data = await websocket.receive_text()
-                print_debug(DEBUG, f"recieved: {data}", "WEBSOCKET")
-                data = json.loads(data)
+                print_debug(DEBUG, f"recieved: {data}", "WS")
 
+                # decode data and check proper format
+                data = json.loads(data)
                 msg_type = data.get("type", None)
                 if not isinstance(msg_type, str):
                     await manager.send_personal_msg(
@@ -54,21 +57,28 @@ async def ws(websocket: WebSocket):
                     )
                     continue
 
+                # received cmd to be run
                 if data.get("type") == "cmd":
+
+                    # cmd field necessary
                     cmd = data.get("cmd", None)
-                    timeout = data.get("timeout", 5.0)
                     if cmd is None or not isinstance(cmd, str):
                         await manager.send_personal_msg(
                             websocket,
                             {"type": "error", "error": "invalid 'cmd' string field"},
                         )
                         continue
+
+                    # timeout field not necessary, default = 5.0
+                    timeout = data.get("timeout", 5.0)
                     if timeout is not None and not isinstance(timeout, float):
                         await manager.send_personal_msg(
                             websocket,
                             {"type": "error", "error": "invalid 'timeout' float field"},
                         )
                         continue
+
+                    # run the cmd and return output after timeout seconds
                     else:
                         connection = manager.get_connection(websocket)
                         output = connection.terminal.run_cmd(cmd, timeout)

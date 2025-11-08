@@ -20,6 +20,12 @@ const XTerminal = () => {
 
   // data received from backend
   useEffect(() => {
+    ws.onopen = () => debugLog("ws connected");
+
+    ws.onclose = () => debugLog("ws disconnected");
+
+    ws.onerror = (e) => debugLog("ws error:", e);
+
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
       debugLog("receive data:", data);
@@ -45,6 +51,10 @@ const XTerminal = () => {
         debugLog("enterPressedOnCmd:", enterPressedOnCmd);
       }
     };
+
+    // closing ws here
+    window.addEventListener("beforeunload", () => ws.close());
+    return () => ws.close();
   }, []);
 
   useEffect(() => {
