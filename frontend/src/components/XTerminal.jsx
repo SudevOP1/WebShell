@@ -13,11 +13,20 @@ const XTerminal = () => {
   let currentCmd = "";
   let enterPressedOnCmd = "";
   let firstResponseReceived = false;
+  let previouslyRunCmds = [];
+  let previouslyRunCmdsIndex = 0;
+  let currentCmdWhileTogglingPreviouslyRunCmds = "";
 
   const debugLog = (...args) => {
     if (debug) {
       console.log(...args);
     }
+  };
+
+  const rewriteCurrentCmd = (cmd) => {
+    const numBackspaces = "\b \b".repeat(currentCmd.length);
+    terminal.write(numBackspaces);
+    terminal.write(cmd);
   };
 
   // data received from backend
@@ -64,14 +73,10 @@ const XTerminal = () => {
       return;
     }
 
-    // load the fit addon
+    // fit addon stuff (for terminal resizing)
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current);
-
-    // fit the terminal to container
     fitAddon.fit();
-
-    // handle window resize
     const handleResize = () => {
       fitAddon.fit();
     };
@@ -82,11 +87,9 @@ const XTerminal = () => {
       // block keys not in allowedKeyCodes
       if (!allowedKeyCodes.includes(domEvent.keyCode)) {
         debugLog("Blocked key:", domEvent.keyCode);
-
         // return false to prevent xterm from handling this key
         return false;
       }
-
       // return true to let xterm handle allowed keys normally
       return true;
     });
@@ -119,26 +122,109 @@ const XTerminal = () => {
             cmd: currentCmd.trim(),
           })
         );
-        terminal.write("\r\n"); // in terminal, \r\n = newline (for windows)
+        terminal.write("\r\n"); // \r\n = newline (for windows terminals)
         enterPressedOnCmd = currentCmd;
+        previouslyRunCmds.push(currentCmd);
+
+        // reset index to point after the last command
+        previouslyRunCmdsIndex = previouslyRunCmds.length;
+        currentCmdWhileTogglingPreviouslyRunCmds = "";
       }
 
       // pressed backspace key
       else if (domEvent.keyCode === 8) {
         if (currentCmd.length > 0) {
           currentCmd = currentCmd.slice(0, -1);
-          terminal.write("\b \b"); // in terminal, \b \b = backspace
+          terminal.write("\b \b"); // \b \b = backspace
+
+          // if we're in history navigation mode, update the saved command too
+          if (previouslyRunCmdsIndex !== previouslyRunCmds.length) {
+            currentCmdWhileTogglingPreviouslyRunCmds = currentCmd;
+          }
+        }
+      }
+
+      // pressed up arrow, navigate to previous cmd in history
+      else if (domEvent.keyCode === 38) {
+        // save current command if we're at the bottom of history to currentCmdWhileTogglingPreviouslyRunCmds
+        if (previouslyRunCmdsIndex === previouslyRunCmds.length) {
+          currentCmdWhileTogglingPreviouslyRunCmds = currentCmd;
+        }
+
+        // move up in history (if not at top)
+        if (previouslyRunCmdsIndex > 0) {
+          previouslyRunCmdsIndex -= 1;
+          const oldCmd = currentCmd;
+          currentCmd = previouslyRunCmds[previouslyRunCmdsIndex];
+
+          // clear old command before writing new one
+          const numBackspaces = "\b \b".repeat(oldCmd.length);
+          terminal.write(numBackspaces);
+          terminal.write(currentCmd);
+        }
+
+        // if at top of history, reset to the currentCmdWhileTogglingPreviouslyRunCmds
+        else if (previouslyRunCmdsIndex === 0) {
+          const oldCmd = currentCmd;
+          previouslyRunCmdsIndex = previouslyRunCmds.length;
+          currentCmd = currentCmdWhileTogglingPreviouslyRunCmds;
+          currentCmdWhileTogglingPreviouslyRunCmds = "";
+
+          // clear old command before writing new one
+          const numBackspaces = "\b \b".repeat(oldCmd.length);
+          terminal.write(numBackspaces);
+          terminal.write(currentCmd);
+        }
+      }
+
+      // pressed down arrow, navigate to next cmd in history
+      else if (domEvent.keyCode === 40) {
+        if (previouslyRunCmds.length === 0) return;
+
+        // move down in history (if not at bottom)
+        if (previouslyRunCmdsIndex < previouslyRunCmds.length - 1) {
+          previouslyRunCmdsIndex += 1;
+          const oldCmd = currentCmd;
+          currentCmd = previouslyRunCmds[previouslyRunCmdsIndex];
+
+          // clear old command before writing new one
+          const numBackspaces = "\b \b".repeat(oldCmd.length);
+          terminal.write(numBackspaces);
+          terminal.write(currentCmd);
+        }
+
+        // if at the last command, reset to the currentCmdWhileTogglingPreviouslyRunCmds
+        else if (previouslyRunCmdsIndex === previouslyRunCmds.length - 1) {
+          const oldCmd = currentCmd;
+          previouslyRunCmdsIndex = previouslyRunCmds.length;
+          currentCmd = currentCmdWhileTogglingPreviouslyRunCmds;
+          currentCmdWhileTogglingPreviouslyRunCmds = "";
+
+          // clear old command before writing new one
+          const numBackspaces = "\b \b".repeat(oldCmd.length);
+          terminal.write(numBackspaces);
+          terminal.write(currentCmd);
         }
       }
 
       // pressed regular character
       else {
+        // if we're in history navigation mode, append input char to historical cmd
+        if (previouslyRunCmdsIndex !== previouslyRunCmds.length) {
+          previouslyRunCmdsIndex = previouslyRunCmds.length;
+          currentCmdWhileTogglingPreviouslyRunCmds = "";
+        }
         currentCmd += key;
         terminal.write(key);
       }
 
-      debugLog("currentCmd", currentCmd);
+      debugLog("currentCmd:", currentCmd);
       debugLog("enterPressedOnCmd:", enterPressedOnCmd);
+      debugLog("previouslyRunCmdsIndex:", previouslyRunCmdsIndex);
+      debugLog(
+        "currentCmdWhileTogglingPreviouslyRunCmds:",
+        currentCmdWhileTogglingPreviouslyRunCmds
+      );
     });
 
     return () => {
@@ -208,10 +294,8 @@ let punctuationKeyCodes = [
   222, // '
 ];
 
-let arrowKeyCodes = [
-  37, // left arrow
+let upDownArrowKeyCodes = [
   38, // up arrow
-  39, // right arrow
   40, // down arrow
 ];
 
@@ -221,8 +305,8 @@ let allowedKeyCodes = [
   16, // shift
   20, // caps lock
   32, // space
+  ...numberKeyCodes,
+  ...alphabetKeyCodes,
+  ...punctuationKeyCodes,
+  ...upDownArrowKeyCodes,
 ];
-allowedKeyCodes += numberKeyCodes;
-allowedKeyCodes += alphabetKeyCodes;
-allowedKeyCodes += punctuationKeyCodes;
-// allowedKeyCodes += allowedKeyCodes;
