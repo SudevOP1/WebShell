@@ -9,3 +9,7 @@ __pycache__/
 
 # backend tests
 backend/tests/
+
+# backend logs
+backend/logs.txt
+

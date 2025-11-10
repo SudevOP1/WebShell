@@ -2,6 +2,7 @@ from fastapi import WebSocket
 import winpty, re, queue, time, threading, json
 
 from .helpers import print_debug
+from settings import *
 
 
 class WSConnection:
@@ -13,10 +14,9 @@ class WSConnection:
 
 class WSConnectionsManager:
 
-    def __init__(self, debug: bool):
-        self.debug = debug
+    def __init__(self):
         self.connections: dict[WebSocket, WSConnection] = {}
-        print_debug(self.debug, f"manager initialized", "MANAGER")
+        print_debug(f"manager initialized", debug_manager)
 
     def get_connection(self, websocket: WebSocket) -> WSConnection | None:
         return self.connections.get(websocket, None)
@@ -24,9 +24,8 @@ class WSConnectionsManager:
     async def add_connection(self, connection: WSConnection) -> None:
         self.connections[connection.websocket] = connection
         print_debug(
-            self.debug,
             f"1 client connected, current active clients = {len(self.connections)}",
-            "MANAGER",
+            debug_manager,
         )
 
     async def disconnect(self, websocket: WebSocket) -> None:
@@ -39,25 +38,24 @@ class WSConnectionsManager:
             if websocket in self.connections.keys():
                 del self.connections[websocket]
             print_debug(
-                self.debug,
                 f"1 client disconnected, current active clients = {len(self.connections)}",
-                "MANAGER",
+                debug_manager,
             )
 
     async def send_personal_msg(self, websocket: WebSocket, msg: str) -> None:
         try:
             connection = self.get_connection(websocket)
             if connection is not None:
-                await connection.websocket.send_text(json.dumps(msg))
-                print_debug(self.debug, f"sent personal msg: {msg}", "WS")
+                await connection.websocket.send_json(msg)
+                print_debug(f"sent personal msg: {msg}", debug_ws)
         except Exception:
-            print_debug(self.debug, f"send failed: {msg}", "ERROR")
+            print_debug(msg=f"send failed: {msg}", label="ERROR", log_to_file=True)
             pass
 
     async def broadcast_msg(self, msg: str) -> None:
         for connection in self.connections:
-            await connection.websocket.send_text(msg)
-            print_debug(self.debug, f"broadcasted msg: {msg}", "WS")
+            await connection.websocket.send_json(msg)
+            print_debug(f"broadcasted msg: {msg}", debug_ws)
 
 
 class PseudoTerminal:
